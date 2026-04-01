@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${file.title} + ' - Local Library'">File View - Local Library</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        .file-viewer {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        .file-viewer iframe {
+            width: 100%;
+            height: calc(100vh - 280px);
+            min-height: 500px;
+            border: none;
+            display: block;
+        }
+        .file-viewer img {
+            max-width: 100%;
+            max-height: calc(100vh - 280px);
+            display: block;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .file-viewer pre {
+            background: #fff;
+            padding: 20px;
+            border-radius: 0;
+            overflow: auto;
+            max-height: calc(100vh - 280px);
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .docx-preview {
+            background: #fff;
+            padding: 40px;
+            overflow: auto;
+            max-height: calc(100vh - 280px);
+            font-family: 'Calibri', 'Segoe UI', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .docx-preview img {
+            max-width: 100%;
+            height: auto;
+        }
+        .docx-preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .docx-preview td, .docx-preview th {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .video-container {
+            background: #000;
+            padding: 20px;
+            border-radius: var(--radius);
+        }
+        .video-container video {
+            width: 100%;
+            max-height: 70vh;
+            display: block;
+            margin: 0 auto;
+        }
+        .audio-container {
+            background: var(--surface);
+            padding: 50px 30px;
+            border-radius: var(--radius);
+            text-align: center;
+        }
+        .audio-container audio {
+            width: 100%;
+            max-width: 600px;
+            display: block;
+            margin: 20px auto 0;
+        }
+        .unsupported-preview {
+            text-align: center;
+            padding: 60px 30px;
+        }
+        .unsupported-preview i {
+            font-size: 4rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+        .file-info-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        .action-bar {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-book-open me-2"></i>Local Library
+            </a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>Home</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Determine file type once -->
+    <th:block th:with="fileTypeUpper=${#strings.toUpperCase(file.fileType)},
+        isPdf=${fileTypeUpper == 'PDF'},
+        isTxt=${fileTypeUpper == 'TXT'},
+        isHtml=${fileTypeUpper == 'HTML' or fileTypeUpper == 'HTM'},
+        isImage=${fileTypeUpper == 'JPG' or fileTypeUpper == 'JPEG' or fileTypeUpper == 'PNG' or fileTypeUpper == 'GIF' or fileTypeUpper == 'SVG' or fileTypeUpper == 'WEBP'},
+        isEpub=${fileTypeUpper == 'EPUB'},
+        isDocx=${fileTypeUpper == 'DOCX'},
+        isVideo=${fileTypeUpper == 'MP4' or fileTypeUpper == 'AVI' or fileTypeUpper == 'MKV' or fileTypeUpper == 'MOV' or fileTypeUpper == 'WEBM' or fileTypeUpper == 'WMV' or fileTypeUpper == 'FLV'},
+        isAudio=${fileTypeUpper == 'MP3' or fileTypeUpper == 'WAV' or fileTypeUpper == 'OGG' or fileTypeUpper == 'FLAC' or fileTypeUpper == 'M4A' or fileTypeUpper == 'AAC'}">
+
+    <div class="container-fluid mt-4" th:if="${file != null}">
+        <!-- Back Button & Actions -->
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <a th:href="@{|/folder/${file.folder?.id}|}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Folder
+            </a>
+            <div class="action-bar">
+                <a th:href="@{|/download/${file.id}|}" class="btn btn-primary">
+                    <i class="fas fa-download me-2"></i>Download
+                </a>
+                <a th:href="@{|/file/${file.id}/edit|}" class="btn btn-secondary">
+                    <i class="fas fa-edit me-2"></i>Edit
+                </a>
+            </div>
+        </div>
+
+        <!-- File Info -->
+        <div class="file-info-card">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="mb-1" th:text="${file.title}">File Title</h5>
+                    <div class="text-muted">
+                        <span class="badge" th:classappend="'badge-' + ${file.fileType.toLowerCase()}" th:text="${file.fileType}">PDF</span>
+                        <span class="ms-2"><i class="fas fa-hdd me-1"></i><span th:text="${file.formattedFileSize}">2.5 MB</span></span>
+                        <span class="ms-2"><i class="fas fa-calendar me-1"></i>Added <span th:text="${file.formattedDate}">Jan 1, 2024</span></span>
+                        <span class="ms-2" th:if="${file.folder != null}">
+                            <i class="fas fa-folder me-1 text-warning"></i>
+                            <a th:href="@{|/folder/${file.folder.id}|}" th:text="${file.folder.name}" class="text-decoration-none">Folder</a>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <p th:if="${file.description != null and !file.description.isEmpty()}" 
+               class="mt-2 mb-0 text-secondary" th:text="${file.description}">Description</p>
+        </div>
+
+        <!-- File Viewer -->
+        <div class="file-viewer">
+            <!-- PDF Viewer -->
+            <th:block th:if="${isPdf}">
+                <iframe th:src="@{|/view/${file.id}|}" title="PDF Viewer"></iframe>
+            </th:block>
+
+            <!-- Image Viewer -->
+            <th:block th:if="${isImage}">
+                <img th:src="@{|/view/${file.id}|}" th:alt="${file.title}">
+            </th:block>
+
+            <!-- HTML Viewer -->
+            <th:block th:if="${isHtml}">
+                <iframe th:src="@{|/view/${file.id}/|}" title="HTML Viewer"></iframe>
+            </th:block>
+
+            <!-- TXT Viewer -->
+            <th:block th:if="${isTxt}">
+                <pre th:text="${fileContent}">File content here...</pre>
+            </th:block>
+
+            <!-- DOCX Viewer -->
+            <th:block th:if="${isDocx}">
+                <div id="docx-preview" class="docx-preview">
+                    <div class="text-center p-5">
+                        <i class="fas fa-file-word fa-3x text-primary mb-3"></i>
+                        <p class="text-muted">Loading document...</p>
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <script th:inline="javascript">
+                    fetch('/view/' + [[${file.id}]])
+                        .then(function(response) { return response.arrayBuffer(); })
+                        .then(function(arrayBuffer) { return mammoth.convertToHtml({arrayBuffer: arrayBuffer}); })
+                        .then(function(result) {
+                            document.getElementById('docx-preview').innerHTML = result.value;
+                        })
+                        .catch(function(err) {
+                            document.getElementById('docx-preview').innerHTML =
+                                '<div class="unsupported-preview"><i class="fas fa-exclamation-triangle"></i><h5>Preview not available</h5><p class="text-muted">Please download the file to view it.</p></div>';
+                        });
+                </script>
+            </th:block>
+
+            <!-- EPUB Viewer -->
+            <th:block th:if="${isEpub}">
+                <div id="epub-container" style="width: 100%; height: calc(100vh - 340px); min-height: 500px;"></div>
+                <div class="d-flex justify-content-center gap-3 py-2" style="border-top: 1px solid var(--border);">
+                    <button id="epub-prev" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-chevron-left me-1"></i>Previous
+                    </button>
+                    <button id="epub-next" class="btn btn-outline-secondary btn-sm">
+                        Next<i class="fas fa-chevron-right ms-1"></i>
+                    </button>
+                </div>
+            </th:block>
+
+            <!-- Video Player -->
+            <th:block th:if="${isVideo}">
+                <div class="video-container">
+                    <video controls>
+                        <source th:src="@{|/view/${file.id}|}">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            </th:block>
+
+            <!-- Audio Player -->
+            <th:block th:if="${isAudio}">
+                <div class="audio-container">
+                    <i class="fas fa-music fa-4x text-primary mb-3"></i>
+                    <h5 th:text="${file.title}">Audio File</h5>
+                    <audio controls class="mt-3">
+                        <source th:src="@{|/view/${file.id}|}">
+                        Your browser does not support the audio element.
+                    </audio>
+                    <p class="text-muted mt-3 mb-0">
+                        <small><i class="fas fa-hdd me-1"></i>File size: <span th:text="${file.formattedFileSize}"></span></small>
+                    </p>
+                </div>
+            </th:block>
+
+            <!-- Unsupported type -->
+            <th:block th:if="${!isPdf and !isTxt and !isHtml and !isImage and !isEpub and !isDocx and !isVideo and !isAudio}">
+                <div class="unsupported-preview">
+                    <i class="fas fa-file"></i>
+                    <h5>Preview not available</h5>
+                    <p class="text-muted">This file type cannot be previewed directly in the browser.</p>
+                    <a th:href="@{|/download/${file.id}|}" class="btn btn-primary btn-lg mt-2">
+                        <i class="fas fa-download me-2"></i>Download to View
+                    </a>
+                </div>
+            </th:block>
+        </div>
+    </div>
+    </th:block>
+
+    <!-- File not found -->
+    <div class="container-fluid mt-5" th:unless="${file != null}">
+        <div class="main-card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-exclamation-triangle fa-4x text-danger mb-3"></i>
+                <h4>File not found</h4>
+                <p class="text-muted">The requested file could not be loaded.</p>
+                <a href="/" class="btn btn-primary mt-2">
+                    <i class="fas fa-home me-2"></i>Return to Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p class="mb-0">Local Library - Personal File Management System</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+    <script th:inline="javascript">
+        (function() {
+            var epubContainer = document.getElementById('epub-container');
+            if (!epubContainer) return;
+
+            var fileId = /*[[${file.id}]]*/ '';
+            if (!fileId) return;
+
+            fetch('/view/' + fileId)
+                .then(function(res) { return res.arrayBuffer(); })
+                .then(function(buf) {
+                    var book = ePub(buf);
+                    var rendition = book.renderTo('epub-container', {
+                        width: '100%',
+                        height: '100%',
+                        spread: 'none',
+                        flow: 'paginated'
+                    });
+                    rendition.display();
+
+                    document.getElementById('epub-prev').addEventListener('click', function() {
+                        rendition.prev();
+                    });
+                    document.getElementById('epub-next').addEventListener('click', function() {
+                        rendition.next();
+                    });
+
+                    rendition.on('linkClicked', function(href) {
+                        if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) {
+                            window.open(href, '_blank');
+                        } else {
+                            rendition.display(href);
+                        }
+                    });
+
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'ArrowLeft') rendition.prev();
+                        if (e.key === 'ArrowRight') rendition.next();
+                    });
+                })
+                .catch(function(err) {
+                    epubContainer.innerHTML = '<div class="unsupported-preview">' +
+                        '<i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>' +
+                        '<h5>Failed to load EPUB</h5>' +
+                        '<p class="text-muted">' + err.message + '</p>' +
+                        '<a href="/download/' + fileId + '" class="btn btn-primary mt-2">' +
+                        '<i class="fas fa-download me-2"></i>Download Instead</a></div>';
+                });
+        })();
+    </script>
+</body>
+</html>
