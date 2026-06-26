@@ -158,6 +158,4 @@ spring.servlet.multipart.max-request-size=1GB
 ```
 <img width="1914" height="943" alt="library" src="https://github.com/user-attachments/assets/c0527291-d2fe-4e3b-8346-5a4f754c2fd6" />
 
-## License
 
-This project is for personal use.
